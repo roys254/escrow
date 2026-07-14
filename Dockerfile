@@ -1,23 +1,24 @@
-# Use official Python image
 FROM python:3.12-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy requirements first (for better caching)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
 COPY . .
 
-# Create directory for database
 RUN mkdir -p /app/data
 
-# Expose port for health checks
+ENV PYTHONUNBUFFERED=1
+ENV DATABASE_URL=sqlite:///data/escrow.db
+
 EXPOSE 8080
 
-# Run the bot
 CMD ["python", "bot.py"]
