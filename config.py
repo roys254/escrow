@@ -42,3 +42,12 @@ class Config:
         "DOGE": 10,
         "USDT": 10
     }
+
+# At the bottom of config.py
+print("=" * 50)
+print("🔍 CONFIGURATION LOADED:")
+print(f"BOT_TOKEN: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
+print("WALLET ADDRESSES:")
+for currency, address in YOUR_WALLETS.items():
+    print(f"  {currency}: {address}")
+print("=" * 50)
