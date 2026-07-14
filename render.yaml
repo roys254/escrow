@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: crypto-escrow-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEB3_PROVIDER
+        sync: false
+      - key: TRON_PROVIDER
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: ESCROW_FEE
+        value: 0.5
