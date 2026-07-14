@@ -5,18 +5,34 @@ load_dotenv()
 
 class Config:
     BOT_TOKEN = os.getenv("BOT_TOKEN")
+    
+    # Validate token
+    if not BOT_TOKEN:
+        raise ValueError("BOT_TOKEN is not set!")
+    
+    BOT_TOKEN = BOT_TOKEN.strip()
+    
+    if ' ' in BOT_TOKEN:
+        raise ValueError("BOT_TOKEN contains spaces!")
+    
+    if '"' in BOT_TOKEN or "'" in BOT_TOKEN:
+        raise ValueError("BOT_TOKEN contains quotes!")
+    
+    if '\n' in BOT_TOKEN:
+        raise ValueError("BOT_TOKEN contains newline!")
+    
     WEB3_PROVIDER = os.getenv("WEB3_PROVIDER")
     TRON_PROVIDER = os.getenv("TRON_PROVIDER")
     ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(","))) if os.getenv("ADMIN_IDS") else []
     ESCROW_FEE = float(os.getenv("ESCROW_FEE", "0.5"))
     
-    # YOUR WALLET ADDRESSES
+    # YOUR UPDATED WALLET ADDRESSES
     YOUR_WALLETS = {
-        "BTC": "114miezL41JAwNxap1PfXvHjrY1SDGCQfa",
-        "LTC": "MP7qEBHjW5v935kJ9rEiBAmJrzcc3mbJMv",
-        "DOGE": "DDykxkXmfio1QajFSCVCSwfHm62RckHpEE",
-        "ETH": "0x88b78a531d61d8806c1faa7b159a0b357499644f",
-        "USDT": "TWpz2jjsSbNCZAed7zZEZp3zUNydGcNZEY"
+        "BTC": "bc1qsykztwjclsx5nnhyqpjsgrwlc829svkkcm87t6",
+        "ETH": "0xc82dfc44d5Db5592e781c7F97991ac41B3838b4D",
+        "LTC": "ltc1qwqk3c8j9z3rj90jv852xzt4v0qw84y4zl2s5nf",
+        "DOGE": "DERdiK2MKh3CzYovnUDvSRMupR7KQx2KT3",
+        "USDT": "TGWcht1TyUwMz7hS42coWwm1YBAP597SJU"
     }
     
     MIN_AMOUNTS = {
