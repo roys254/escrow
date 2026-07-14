@@ -1,19 +1,44 @@
+import os
+import sys
 import logging
 import uuid
 import threading
 import io
-import os
 from datetime import datetime
+
+# Setup logging first
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Print startup info
+print("=" * 60)
+print("🚀 Starting Crypto Escrow Bot...")
+print("=" * 60)
+
+# Import config
+try:
+    from config import Config
+    print("✅ Config loaded successfully!")
+    print(f"✅ BOT_TOKEN: {'Set' if Config.BOT_TOKEN else 'MISSING!'}")
+    print(f"✅ Admin IDs: {Config.ADMIN_IDS}")
+    print("✅ Wallet addresses loaded")
+except Exception as e:
+    print(f"❌ Error loading config: {e}")
+    sys.exit(1)
+
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 import qrcode
 
-from config import Config
 from database import Database
 from wallets import WalletManager
 
+# Flask app
 app = Flask(__name__)
 
 @app.route('/')
@@ -23,12 +48,6 @@ def health_check():
 @app.route('/health')
 def health():
     return "OK", 200
-
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
 
 db = Database()
 wallet_manager = WalletManager()
@@ -1042,15 +1061,17 @@ def run_bot():
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
+    print("=" * 60)
     print("🤖 Bot is running with YOUR wallets only (no generation)...")
     print(f"✅ Admin ID: {Config.ADMIN_IDS}")
     print(f"✅ Supported currencies: BTC, ETH, LTC, DOGE, USDT")
+    print("=" * 60)
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     def run_flask():
-        app.run(host='0.0.0.0', port=8080)
+        app.run(host='0.0.0.0', port=8080, debug=False)
     
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()

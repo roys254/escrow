@@ -4,23 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    # Bot configuration
     BOT_TOKEN = os.getenv("BOT_TOKEN")
-    
-    # Validate token
-    if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN is not set!")
-    
-    BOT_TOKEN = BOT_TOKEN.strip()
-    
-    if ' ' in BOT_TOKEN:
-        raise ValueError("BOT_TOKEN contains spaces!")
-    
-    if '"' in BOT_TOKEN or "'" in BOT_TOKEN:
-        raise ValueError("BOT_TOKEN contains quotes!")
-    
-    if '\n' in BOT_TOKEN:
-        raise ValueError("BOT_TOKEN contains newline!")
-    
     WEB3_PROVIDER = os.getenv("WEB3_PROVIDER")
     TRON_PROVIDER = os.getenv("TRON_PROVIDER")
     ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(","))) if os.getenv("ADMIN_IDS") else []
@@ -43,11 +28,13 @@ class Config:
         "USDT": 10
     }
 
-# At the bottom of config.py
-print("=" * 50)
+# Debug output (outside class)
+print("=" * 60)
 print("🔍 CONFIGURATION LOADED:")
-print(f"BOT_TOKEN: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
-print("WALLET ADDRESSES:")
-for currency, address in YOUR_WALLETS.items():
+print(f"BOT_TOKEN: {'✅ Set' if Config.BOT_TOKEN else '❌ Missing'}")
+print(f"ADMIN_IDS: {Config.ADMIN_IDS}")
+print(f"ESCROW_FEE: {Config.ESCROW_FEE}%")
+print("\n💰 WALLET ADDRESSES:")
+for currency, address in Config.YOUR_WALLETS.items():
     print(f"  {currency}: {address}")
-print("=" * 50)
+print("=" * 60)
