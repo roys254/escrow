@@ -3,7 +3,7 @@ from config import Config
 
 class WalletManager:
     def __init__(self):
-        self.usdt_contract = "TWpz2jjsSbNCZAed7zZEZp3zUNydGcNZEY"
+        self.usdt_contract = "TGWcht1TyUwMz7hS42coWwm1YBAP597SJU"
     
     def check_balance(self, currency):
         address = Config.YOUR_WALLETS.get(currency)
