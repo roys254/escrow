@@ -2,6 +2,7 @@ import logging
 import uuid
 import threading
 import io
+import os
 from datetime import datetime
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -13,7 +14,6 @@ from config import Config
 from database import Database
 from wallets import WalletManager
 
-# Flask app for Render health checks
 app = Flask(__name__)
 
 @app.route('/')
@@ -24,8 +24,10 @@ def health_check():
 def health():
     return "OK", 200
 
-# Setup logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 db = Database()
@@ -36,7 +38,6 @@ def is_admin(user_id):
     return user_id in Config.ADMIN_IDS
 
 def generate_qr_code(data):
-    """Generate QR code for a wallet address"""
     try:
         qr = qrcode.QRCode(
             version=1,
@@ -49,7 +50,6 @@ def generate_qr_code(data):
         
         img = qr.make_image(fill_color="black", back_color="white")
         
-        # Save to bytes
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
@@ -63,7 +63,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db.add_user(user.id, user.username, user.first_name)
     
-    # Clear any user state
     if user.id in USER_STATES:
         del USER_STATES[user.id]
     
@@ -89,11 +88,6 @@ Hi {first_name}! I'm your secure escrow service for cryptocurrency transactions.
 🆘 /support - Contact support
 ❌ /cancel - Cancel operation
 
-*Security Features:*
-🔐 All transactions are tracked
-🛡️ Dispute resolution available
-✅ Low 0.5% fee
-
 Ready to get started? Click the button below!
     """.format(first_name=user.first_name)
     
@@ -111,72 +105,61 @@ Ready to get started? Click the button below!
     )
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Support command - works both as command and callback"""
     query = update.callback_query
+    support_username = "oxymoronic01"
     
-    support_text = """
+    if query:
+        await query.answer()
+        message = query.message
+    else:
+        message = update.message
+    
+    keyboard = [
+        [InlineKeyboardButton("💬 Contact Support", url=f"https://t.me/{support_username}")],
+        [InlineKeyboardButton("📝 Create Escrow", callback_data="create_escrow")],
+        [InlineKeyboardButton("📊 My Escrows", callback_data="my_escrows")],
+        [InlineKeyboardButton("🏠 Home", callback_data="home")]
+    ]
+    
+    support_text = f"""
 🆘 *Support Center*
 
 *Need Help?* We're here for you!
 
 *Common Issues:*
-1️⃣ *Escrow Creation*
-   - Make sure you have the seller's username
-   - Verify the amount is correct
-   - Check minimum amounts
+1️⃣ *Escrow Creation* - Make sure you have seller's username and correct amount
+2️⃣ *Making Payment* - Copy seller's address and send exact amount
+3️⃣ *Releasing Funds* - Use /release <escrow_id> after delivery
+4️⃣ *Disputes* - Contact support immediately with your Escrow ID
 
-2️⃣ *Making Payment*
-   - Copy the seller's address
-   - Send exact amount
-   - Click "I've Made Payment" after sending
-
-3️⃣ *Releasing Funds*
-   - Use /release <escrow_id>
-   - Only the buyer can release funds
-   - Funds are manually sent
-
-4️⃣ *Disputes*
-   - Contact support immediately
-   - Provide your escrow ID
-   - Explain the issue clearly
+━━━━━━━━━━━━━━━━━━━━━━
 
 *Support Channels:*
-💬 Telegram: @oxymoronic01
+💬 Telegram: @{support_username}
 🕐 Response Time: ~10 minutes
 
 *Escrow ID Format:*
-Your escrow ID looks like: abc12345
-Keep it safe!
+Your escrow ID looks like: `abc12345`
 
 *Quick Tips:*
 • Always double-check wallet addresses
 • Send EXACT amount shown
 • Keep your Escrow ID safe
 • Only release funds after receiving goods/service
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Click the button below to contact support directly! 👇
     """
     
-    keyboard = [
-        [InlineKeyboardButton("📝 Create Escrow", callback_data="create_escrow")],
-        [InlineKeyboardButton("📊 My Escrows", callback_data="my_escrows")],
-        [InlineKeyboardButton("🏠 Home", callback_data="home")]
-    ]
-    
     if query:
-        await query.answer()
-        try:
-            await query.edit_message_text(
-                support_text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        except Exception as e:
-            await query.message.reply_text(
-                support_text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+        await query.edit_message_text(
+            support_text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
     else:
-        await update.message.reply_text(
+        await message.reply_text(
             support_text,
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -273,7 +256,6 @@ Please enter the seller's {currency} wallet address:
         seller_address = update.message.text.strip()
         currency = state["currency"]
         
-        # Validate the address
         is_valid = wallet_manager.validate_address(currency, seller_address)
         if not is_valid:
             await update.message.reply_text(
@@ -315,7 +297,6 @@ Minimum: {Config.MIN_AMOUNTS.get(currency, 0.0001)} {currency}"""
             
             escrow_id = str(uuid.uuid4())[:8]
             
-            # Create escrow with seller_address
             db.create_escrow(
                 escrow_id=escrow_id,
                 buyer_id=user_id,
@@ -381,14 +362,12 @@ async def confirm_escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     db.update_escrow_status(escrow_id, "pending")
     
-    # Get all wallet addresses
     btc_address = Config.YOUR_WALLETS.get("BTC")
     eth_address = Config.YOUR_WALLETS.get("ETH")
     ltc_address = Config.YOUR_WALLETS.get("LTC")
     doge_address = Config.YOUR_WALLETS.get("DOGE")
     usdt_address = Config.YOUR_WALLETS.get("USDT")
     
-    # Create payment keyboard with payment options
     keyboard = [
         [InlineKeyboardButton("💰 Pay with BTC", callback_data="pay_btc")],
         [InlineKeyboardButton("💰 Pay with ETH", callback_data="pay_eth")],
@@ -442,7 +421,7 @@ async def confirm_escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • Send the EXACT amount shown above
 • Double-check the address before sending
 • Keep this Escrow ID: `{escrow_id}`
-• For help, contact @oxymoronic01"""
+• For help, click the Support button below"""
     
     await query.edit_message_text(
         text,
@@ -450,24 +429,18 @@ async def confirm_escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     
-    # Clear user state
     del USER_STATES[user_id]
 
 async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle payment-related callback queries"""
     query = update.callback_query
     if not query:
         return
     
     await query.answer()
-    
     data = query.data
     
-    # Handle payment for each currency
     if data == "pay_btc":
         address = Config.YOUR_WALLETS.get("BTC")
-        
-        # Generate QR code
         qr_image = generate_qr_code(address)
         
         if qr_image:
@@ -493,7 +466,6 @@ async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_T
     
     elif data == "pay_eth":
         address = Config.YOUR_WALLETS.get("ETH")
-        
         qr_image = generate_qr_code(address)
         
         if qr_image:
@@ -519,7 +491,6 @@ async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_T
     
     elif data == "pay_ltc":
         address = Config.YOUR_WALLETS.get("LTC")
-        
         qr_image = generate_qr_code(address)
         
         if qr_image:
@@ -545,7 +516,6 @@ async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_T
     
     elif data == "pay_doge":
         address = Config.YOUR_WALLETS.get("DOGE")
-        
         qr_image = generate_qr_code(address)
         
         if qr_image:
@@ -571,7 +541,6 @@ async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_T
     
     elif data == "pay_usdt":
         address = Config.YOUR_WALLETS.get("USDT")
-        
         qr_image = generate_qr_code(address)
         
         if qr_image:
@@ -660,7 +629,7 @@ async def handle_payment_actions(update: Update, context: ContextTypes.DEFAULT_T
 ⚠️ IMPORTANT:
 Only release funds after you receive what you paid for!
 
-Need help? Contact @oxymoronic01 with your Escrow ID."""
+Need help? Click the Support button below."""
             
             await query.edit_message_text(
                 text,
@@ -729,7 +698,7 @@ Confirm to release funds to the seller."""
 
 Thank you for using Crypto Escrow Bot!
 
-Need help? Contact @oxymoronic01"""
+Need help? Click the Support button below."""
             
             await query.edit_message_text(
                 text,
@@ -743,7 +712,6 @@ Need help? Contact @oxymoronic01"""
         await view_escrow_details(query, escrow_id)
 
 async def view_escrow_details(query, escrow_id):
-    """View escrow details"""
     escrow = db.get_escrow(escrow_id)
     
     if not escrow:
@@ -756,7 +724,6 @@ async def view_escrow_details(query, escrow_id):
     doge_address = Config.YOUR_WALLETS.get("DOGE")
     usdt_address = Config.YOUR_WALLETS.get("USDT")
     
-    # Get status with fallback
     status = escrow[7] if escrow[7] else "unknown"
     status_emoji = {
         "pending": "⏳",
@@ -781,7 +748,6 @@ async def view_escrow_details(query, escrow_id):
     keyboard.append([InlineKeyboardButton("🆘 Support", callback_data="support")])
     keyboard.append([InlineKeyboardButton("🏠 Home", callback_data="home")])
     
-    # Get values with fallbacks
     escrow_id_val = escrow[0] if escrow[0] else "N/A"
     currency = escrow[4] if escrow[4] else "Unknown"
     amount = escrow[5] if escrow[5] else 0
@@ -821,7 +787,7 @@ YOUR WALLET ADDRESSES:
 QUICK ACTIONS:
 • Click "Pay with [Currency]" to get payment address with QR code
 • Click "Show Seller Address" to see seller's wallet with QR code
-• Contact @oxymoronic01 for help"""
+• Click "Support" for help"""
     
     await query.edit_message_text(
         text,
@@ -830,11 +796,9 @@ QUICK ACTIONS:
     )
 
 async def list_escrows(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """List all escrows for the user"""
     user_id = update.effective_user.id
     escrows = db.get_user_escrows(user_id)
     
-    # Determine if this is a callback query or direct command
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -844,15 +808,12 @@ async def list_escrows(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not escrows:
         await message_obj.reply_text(
-            "📊 *YOUR ESCROWS*\n\n"
-            "No escrows found.\n"
-            "Use /create to start your first escrow! 🚀",
+            "📊 *YOUR ESCROWS*\n\nNo escrows found.\nUse /create to start your first escrow! 🚀",
             parse_mode=ParseMode.MARKDOWN
         )
         return
     
-    text = "📊 *YOUR ESCROWS*\n"
-    text += "═" * 30 + "\n\n"
+    text = "📊 *YOUR ESCROWS*\n" + "═" * 30 + "\n\n"
     
     for escrow in escrows[:10]:
         status = escrow[7] if escrow[7] else "unknown"
@@ -891,17 +852,12 @@ async def list_escrows(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def release_funds(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Release funds from escrow (manual command)"""
     user_id = update.effective_user.id
     args = context.args
     
     if not args:
         await update.message.reply_text(
-            "🔐 *RELEASE FUNDS*\n\n"
-            "Usage: /release <escrow_id>\n"
-            "Example: /release abc12345\n\n"
-            "Get your escrow ID from /list\n"
-            "Or use /support for help.",
+            "🔐 *RELEASE FUNDS*\n\nUsage: /release <escrow_id>\nExample: /release abc12345",
             parse_mode=ParseMode.MARKDOWN
         )
         return
@@ -911,26 +867,18 @@ async def release_funds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not escrow:
         await update.message.reply_text(
-            f"❌ Escrow `{escrow_id}` not found.\n\n"
-            f"Please check the ID and try again.\n"
-            f"Use /list to see your escrows.",
+            f"❌ Escrow `{escrow_id}` not found.\n\nUse /list to see your escrows.",
             parse_mode=ParseMode.MARKDOWN
         )
         return
     
     if escrow[1] != user_id:
-        await update.message.reply_text(
-            "❌ You are not the buyer for this escrow.\n\n"
-            "Only the buyer can release funds.",
-            parse_mode=ParseMode.MARKDOWN
-        )
+        await update.message.reply_text("❌ You are not the buyer for this escrow.", parse_mode=ParseMode.MARKDOWN)
         return
     
     if escrow[7] != "paid":
         await update.message.reply_text(
-            f"❌ Escrow status is `{escrow[7]}`. Cannot release.\n\n"
-            f"Make sure you've marked payment as sent first!\n"
-            f"Use /list to check your escrows.",
+            f"❌ Escrow status is `{escrow[7]}`. Cannot release.\n\nMake sure you've marked payment as sent first!",
             parse_mode=ParseMode.MARKDOWN
         )
         return
@@ -955,32 +903,20 @@ async def release_funds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⚠️ IMPORTANT - Manual Action Required:
 1️⃣ Send {amount} {currency} to the seller's wallet above
 2️⃣ Confirm with the seller they received the payment
-3️⃣ Transaction is complete!
-
-Thank you for using Crypto Escrow Bot!
-Need help? Contact @oxymoronic01"""
+3️⃣ Transaction is complete!"""
     
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Check all wallet balances"""
     user_id = update.effective_user.id
     
     if not is_admin(user_id):
         if update.callback_query:
             query = update.callback_query
             await query.answer()
-            await query.edit_message_text(
-                "⛔️ *ACCESS DENIED*\n\n"
-                "The /balance command is only available to administrators.",
-                parse_mode=ParseMode.MARKDOWN
-            )
+            await query.edit_message_text("⛔️ *ACCESS DENIED*\n\nAdmin only.", parse_mode=ParseMode.MARKDOWN)
         else:
-            await update.message.reply_text(
-                "⛔️ *ACCESS DENIED*\n\n"
-                "The /balance command is only available to administrators.",
-                parse_mode=ParseMode.MARKDOWN
-            )
+            await update.message.reply_text("⛔️ *ACCESS DENIED*\n\nAdmin only.", parse_mode=ParseMode.MARKDOWN)
         return
     
     if update.callback_query:
@@ -990,10 +926,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         msg = await update.message.reply_text("🔄 Checking wallet balances...")
     
-    text = "💰 *WALLET BALANCES*\n"
-    text += "═" * 30 + "\n\n"
-    
-    total_usd_estimate = 0
+    text = "💰 *WALLET BALANCES*\n" + "═" * 30 + "\n\n"
     
     for currency, address in Config.YOUR_WALLETS.items():
         try:
@@ -1005,41 +938,17 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 balance_str = f"{balance:.8f}"
             
-            emoji = {
-                "BTC": "💵",
-                "ETH": "💎",
-                "LTC": "🥇",
-                "DOGE": "🐕",
-                "USDT": "💵"
-            }.get(currency, "🪙")
+            emoji = {"BTC": "💵", "ETH": "💎", "LTC": "🥇", "DOGE": "🐕", "USDT": "💵"}.get(currency, "🪙")
             
             text += f"{emoji} *{currency}*\n"
             text += f"   Balance: `{balance_str}`\n"
             text += f"   Address: `{address[:10]}...{address[-6:]}`\n"
             text += f"   Status: {'✅ Valid' if is_valid else '❌ Invalid'}\n\n"
             
-            if balance > 0:
-                if currency == "BTC":
-                    total_usd_estimate += balance * 43000
-                elif currency == "ETH":
-                    total_usd_estimate += balance * 2200
-                elif currency == "LTC":
-                    total_usd_estimate += balance * 70
-                elif currency == "DOGE":
-                    total_usd_estimate += balance * 0.08
-                elif currency == "USDT":
-                    total_usd_estimate += balance
-            
         except Exception as e:
-            logger.error(f"Error checking {currency}: {e}")
-            text += f"❌ *{currency}*\n"
-            text += f"   Error: Could not fetch balance\n\n"
+            text += f"❌ *{currency}*\n   Error: Could not fetch balance\n\n"
     
-    text += "═" * 30 + "\n"
-    text += f"🔄 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    
-    if total_usd_estimate > 0:
-        text += f"\n💵 Estimated Total: ~${total_usd_estimate:.2f} USD"
+    text += "═" * 30 + f"\n🔄 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     
     await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
 
@@ -1048,48 +957,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🤖 *CRYPTO ESCROW BOT HELP*
 
 *Available Commands:*
-
-📝 `/create` - Start a new escrow
-📊 `/list` - View your escrows  
-🔐 `/release <id>` - Release funds from escrow
-💰 `/balance` - Check wallet balances (admin only)
-🆘 `/support` - Contact support
-❌ `/cancel` - Cancel current operation
-ℹ️ `/help` - Show this help
+📝 /create - Start a new escrow
+📊 /list - View your escrows  
+🔐 /release <id> - Release funds from escrow
+💰 /balance - Check wallet balances (admin only)
+🆘 /support - Contact support
+❌ /cancel - Cancel current operation
+ℹ️ /help - Show this help
 
 *How Escrow Works:*
+1️⃣ Create Escrow - Select currency, enter seller's info and amount
+2️⃣ Make Payment - Click "Pay with [Currency]", copy address, send exact amount
+3️⃣ Complete Trade - Seller delivers, use /release to confirm
 
-1️⃣ *Create Escrow*
-   • Select currency
-   • Enter seller's username
-   • Enter seller's wallet address
-   • Enter amount
-   • Confirm details
-
-2️⃣ *Make Payment*
-   • Click "Pay with [Currency]"
-   • Scan QR code or copy address
-   • Send exact amount
-   • Click "I've Made Payment"
-
-3️⃣ *Complete Trade*
-   • Seller delivers goods/service
-   • Use /release to confirm
-   • Send funds manually
-
-*Supported Currencies:*
-💰 BTC • ETH • LTC • DOGE • USDT
-
-*Fee Structure:*
-📊 {Config.ESCROW_FEE}% of transaction amount
-
-*Security:*
-🔐 All transactions are tracked
-🛡️ Dispute resolution available
-📋 Escrow IDs for reference
-
-*Need Help?*
-Contact @oxymoronic01 (Response: ~10 mins)
+*Supported Currencies:* BTC • ETH • LTC • DOGE • USDT
+*Fee Structure:* {Config.ESCROW_FEE}% of transaction amount
+*Need Help?* Contact @oxymoronic01 (Response: ~10 mins)
     """
     
     keyboard = [
@@ -1099,59 +982,39 @@ Contact @oxymoronic01 (Response: ~10 mins)
         [InlineKeyboardButton("🏠 Home", callback_data="home")]
     ]
     
-    await update.message.reply_text(
-        help_text,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cancel current operation and return to start"""
     user_id = update.effective_user.id
     
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        
         if user_id in USER_STATES:
             del USER_STATES[user_id]
-        
-        await query.edit_message_text(
-            "❌ Operation Cancelled\n\nYou've been returned to the main menu."
-        )
+        await query.edit_message_text("❌ Operation Cancelled")
         await start(update, context)
     else:
         if user_id in USER_STATES:
             del USER_STATES[user_id]
-        
-        await update.message.reply_text(
-            "❌ Operation Cancelled\n\nYou've been returned to the main menu."
-        )
+        await update.message.reply_text("❌ Operation Cancelled")
         await start(update, context)
 
 async def home(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Return to home menu"""
     query = update.callback_query
     if not query:
         return
     
     await query.answer()
-    
     user_id = query.from_user.id
     if user_id in USER_STATES:
         del USER_STATES[user_id]
-    
-    await query.edit_message_text(
-        "🏠 Returning to main menu..."
-    )
-    
+    await query.edit_message_text("🏠 Returning to main menu...")
     await start(update, context)
 
 def run_bot():
-    """Run the Telegram bot"""
     application = Application.builder().token(Config.BOT_TOKEN).build()
     
-    # Command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("support", support))
@@ -1161,7 +1024,6 @@ def run_bot():
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("cancel", cancel))
     
-    # Callback query handlers
     application.add_handler(CallbackQueryHandler(create_escrow, pattern="^create_escrow$"))
     application.add_handler(CallbackQueryHandler(handle_currency, pattern="^cur_"))
     application.add_handler(CallbackQueryHandler(confirm_escrow, pattern="^confirm_escrow$"))
@@ -1178,13 +1040,11 @@ def run_bot():
     application.add_handler(CallbackQueryHandler(balance, pattern="^balance$"))
     application.add_handler(CallbackQueryHandler(home, pattern="^home$"))
     
-    # Message handler for text input
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     print("🤖 Bot is running with YOUR wallets only (no generation)...")
     print(f"✅ Admin ID: {Config.ADMIN_IDS}")
     print(f"✅ Supported currencies: BTC, ETH, LTC, DOGE, USDT")
-    print("✅ Bot is ready! Send /start to get started.")
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 

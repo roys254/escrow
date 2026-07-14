@@ -12,7 +12,6 @@ class WalletManager:
         
         try:
             if currency == "BTC":
-                # Using blockchain.info API
                 url = f"https://blockchain.info/q/addressbalance/{address}"
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
@@ -20,7 +19,6 @@ class WalletManager:
                 return 0
             
             elif currency == "LTC":
-                # Using blockchair API
                 url = f"https://api.blockchair.com/litecoin/dashboards/address/{address}"
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
@@ -30,7 +28,6 @@ class WalletManager:
                 return 0
             
             elif currency == "DOGE":
-                # Using blockchair API
                 url = f"https://api.blockchair.com/dogecoin/dashboards/address/{address}"
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
@@ -40,7 +37,6 @@ class WalletManager:
                 return 0
             
             elif currency == "ETH":
-                # Using Etherscan API (no web3 needed)
                 url = f"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest"
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
@@ -50,7 +46,6 @@ class WalletManager:
                 return 0
             
             elif currency == "USDT":
-                # Using TronGrid API
                 url = f"https://api.trongrid.io/v1/accounts/{address}"
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:

@@ -1,14 +1,16 @@
 import sqlite3
+import os
 from datetime import datetime
 
 class Database:
-    def __init__(self, db_path="escrow.db"):
+    def __init__(self, db_path="data/escrow.db"):
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_tables()
     
     def create_tables(self):
-        # Users table
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
@@ -18,7 +20,6 @@ class Database:
             )
         ''')
         
-        # Escrows table with all fields
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS escrows (
                 escrow_id TEXT PRIMARY KEY,

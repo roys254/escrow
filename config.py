@@ -12,11 +12,11 @@ class Config:
     
     # YOUR WALLET ADDRESSES
     YOUR_WALLETS = {
-        "BTC": os.getenv("TEST_BTC_ADDRESS", "114miezL41JAwNxap1PfXvHjrY1SDGCQfa"),
-        "LTC": os.getenv("TEST_LTC_ADDRESS", "MP7qEBHjW5v935kJ9rEiBAmJrzcc3mbJMv"),
-        "DOGE": os.getenv("TEST_DOGE_ADDRESS", "DDykxkXmfio1QajFSCVCSwfHm62RckHpEE"),
-        "ETH": os.getenv("TEST_ETH_ADDRESS", "0x88b78a531d61d8806c1faa7b159a0b357499644f"),
-        "USDT": os.getenv("TEST_USDT_ADDRESS", "TWpz2jjsSbNCZAed7zZEZp3zUNydGcNZEY")
+        "BTC": "114miezL41JAwNxap1PfXvHjrY1SDGCQfa",
+        "LTC": "MP7qEBHjW5v935kJ9rEiBAmJrzcc3mbJMv",
+        "DOGE": "DDykxkXmfio1QajFSCVCSwfHm62RckHpEE",
+        "ETH": "0x88b78a531d61d8806c1faa7b159a0b357499644f",
+        "USDT": "TWpz2jjsSbNCZAed7zZEZp3zUNydGcNZEY"
     }
     
     MIN_AMOUNTS = {

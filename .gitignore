@@ -2,8 +2,10 @@
 __pycache__/
 *.pyc
 *.db
-*.sqlite3
 *.sqlite
+*.sqlite3
+data/
 .DS_Store
+*.log
 venv/
 env/
